@@ -538,3 +538,4 @@ CREATE TABLE test_allMeds AS
 	LEFT OUTER JOIN test_allergy
 		ON tempMedsRx.PatientGuid = test_allergy.PatientGuid
 		AND tempMedsRx.MedicationNdcCode = test_allergy.MedicationNdcCode;
+		
