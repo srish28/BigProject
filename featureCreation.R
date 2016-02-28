@@ -1,5 +1,6 @@
+
 rm(list = ls(all = TRUE))
-setwd("/home/srishti/Major Project/BigProject")
+setwd("/home/srishti/workspace")
 library(RSQLite)
 n <- dbDriver("SQLite", max.con=25)
 con <- dbConnect(n, dbname="compData.db")
@@ -258,17 +259,22 @@ testAllergy<-dbGetQuery(con, "SELECT * FROM test_allergy")
 names(trainingAllergy)[names(trainingAllergy)=="MedicationNdcCode"]<-"MedicationNDCCode"
 Allergy<-rbind(trainingAllergy,testAllergy)
 rm("trainingAllergy","testAllergy")
+
+
 Allergy$SeverityName[Allergy$SeverityName=="Very Mild"] <- 1
 Allergy$SeverityName[Allergy$SeverityName=="Mild"] <- 2
 Allergy$SeverityName[Allergy$SeverityName=="Modest"] <- 3
 Allergy$SeverityName[Allergy$SeverityName=="Severe"] <- 4
+
 i=1
+
 allergyList = c()
 while(i<4217){
   if(!(Allergy$AllergyType[i] %in% allergyList))
     allergyList[length(allergyList)+1]=Allergy$AllergyType[i];
   i=i+1
 }
+
 i=1
 reactionList <- c()
 while(i<4217){
@@ -294,5 +300,59 @@ while(i<26){
   colnames(Allergy)[j] <- reactionList[i];
   i=i+1;
   j=j+1;
+}
+
+#Smoke codes
+smokeCode<-dbGetQuery(con, "SELECT * FROM smokingStatus")
+
+
+
+#Smoking
+trainingSmoking<-dbGetQuery(con, "SELECT * FROM training_patientSmokingStatus")
+testSmoking<-dbGetQuery(con, "SELECT * FROM test_patientSmokingStatus")
+
+smokingStatus<-rbind(trainingSmoking, testSmoking)
+rm("trainingSmoking","testSmoking")
+
+
+i=1
+smokeList = c()
+while(i<7383){
+  if(!(smokingStatus$SmokingStatusGuid[i] %in% smokeList))
+    smokeList[length(smokeList)+1]=smokingStatus$SmokingStatusGuid[i]
+  i=i+1
+}
+
+
+i=1
+j=5
+while(i<10){
+  smokingStatus$smokeList <- ifelse(smokingStatus$SmokingStatusGuid == smokeList[i], 1, 0);
+  #smokingStatus$smokeList <- Allergy$allergyList * as.numeric(Allergy$SeverityName);
+  colnames(smokingStatus)[j] <- smokeList[i]
+  i=i+1;
+  j=j+1;
+}
+
+j <- 5
+i <- 1
+k <- 0
+while(j<15){
+  if(colnames(smokingStatus)[j] %in% smokeCode$SmokingStatusGuid) {
+    k=which(smokeCode$SmokingStatusGuid %in% colnames(smokingStatus)[j])
+    colnames(smokingStatus)[j] <- smokeCode$Description[k]
+  }
+  j <- j + 1;
+  
+}
+i <- 1
+k <- 1
+while(i<7384){
+  
+  k=which(smokeCode$SmokingStatusGuid %in% smokingStatus$SmokingStatusGuid[i])
+  smokingStatus$NISTCode[i] <- smokeCode$NISTcode[k]
+  
+  i <- i + 1;
+  
 }
 
