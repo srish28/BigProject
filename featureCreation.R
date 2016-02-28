@@ -303,7 +303,7 @@ while(i<26){
 }
 
 #Smoke codes
-smokeCode<-dbGetQuery(con, "SELECT * FROM smokingStatus")
+SmokeCode<-dbGetQuery(con, "SELECT * FROM smokingStatus")
 
 
 
@@ -311,48 +311,104 @@ smokeCode<-dbGetQuery(con, "SELECT * FROM smokingStatus")
 trainingSmoking<-dbGetQuery(con, "SELECT * FROM training_patientSmokingStatus")
 testSmoking<-dbGetQuery(con, "SELECT * FROM test_patientSmokingStatus")
 
-smokingStatus<-rbind(trainingSmoking, testSmoking)
+SmokingStatus<-rbind(trainingSmoking, testSmoking)
 rm("trainingSmoking","testSmoking")
 
-
+#create list
 i=1
 smokeList = c()
-while(i<7383){
-  if(!(smokingStatus$SmokingStatusGuid[i] %in% smokeList))
-    smokeList[length(smokeList)+1]=smokingStatus$SmokingStatusGuid[i]
+while(i<=7383){
+  if(!(SmokingStatus$SmokingStatusGuid[i] %in% smokeList))
+    smokeList[length(smokeList)+1]=SmokingStatus$SmokingStatusGuid[i]
   i=i+1
 }
 
-
+#create new fields
 i=1
 j=5
-while(i<10){
-  smokingStatus$smokeList <- ifelse(smokingStatus$SmokingStatusGuid == smokeList[i], 1, 0);
+while(i<=10){
+  SmokingStatus$smokeList <- ifelse(SmokingStatus$SmokingStatusGuid == smokeList[i], 1, 0);
   #smokingStatus$smokeList <- Allergy$allergyList * as.numeric(Allergy$SeverityName);
-  colnames(smokingStatus)[j] <- smokeList[i]
+  colnames(SmokingStatus)[j] <- smokeList[i]
   i=i+1;
   j=j+1;
 }
 
+#rename fields
 j <- 5
 i <- 1
 k <- 0
-while(j<15){
-  if(colnames(smokingStatus)[j] %in% smokeCode$SmokingStatusGuid) {
-    k=which(smokeCode$SmokingStatusGuid %in% colnames(smokingStatus)[j])
-    colnames(smokingStatus)[j] <- smokeCode$Description[k]
+while(j<=15){
+  if(colnames(SmokingStatus)[j] %in% SmokeCode$SmokingStatusGuid) {
+    k=which(SmokeCode$SmokingStatusGuid %in% colnames(SmokingStatus)[j])
+    colnames(SmokingStatus)[j] <- SmokeCode$Description[k]
   }
   j <- j + 1;
-  
 }
+
+#add new field for NIST
 i <- 1
 k <- 1
 while(i<7384){
   
-  k=which(smokeCode$SmokingStatusGuid %in% smokingStatus$SmokingStatusGuid[i])
-  smokingStatus$NISTCode[i] <- smokeCode$NISTcode[k]
+  k=which(SmokeCode$SmokingStatusGuid %in% SmokingStatus$SmokingStatusGuid[i])
+  SmokingStatus$NISTCode[i] <- SmokeCode$NISTcode[k]
   
   i <- i + 1;
   
 }
 
+
+#Condition
+Condition <-dbGetQuery(con, "SELECT * FROM condition")
+training_patientCondition<-dbGetQuery(con, "SELECT * FROM training_patientCondition")
+test_patientCondition<-dbGetQuery(con, "SELECT * FROM test_patientCondition")
+
+PatientCondition<-rbind(training_patientCondition, test_patientCondition)
+rm("training_patientCondition","test_patientCondition")
+
+
+#create new field
+i=1
+condList = c()
+while(i<=4268){
+  if(!(PatientCondition$ConditionGuid[i] %in% condList))
+    condList[length(condList)+1]=PatientCondition$ConditionGuid[i]
+  i=i+1
+}
+# 
+# j <- 5
+# i <- 1
+# k <- 0
+# while(j<=15){
+#   if(colnames(PatientCondition)[j] %in% Condition$ConditionGuid) {
+#     k=which(Condition$ConditionGuid %in% colnames(SmokingStatus)[j])
+#     colnames(SmokingStatus)[j] <- SmokeCode$Description[k]
+#   }
+#   j <- j + 1;
+#   
+# }
+
+#create new fields
+i=1
+j=5
+while(i<3){
+  PatientCondition$condList <- ifelse(PatientCondition$ConditionGuid == condList[i], 1, 0);
+  #smokingStatus$smokeList <- Allergy$allergyList * as.numeric(Allergy$SeverityName);
+  colnames(PatientCondition)[j] <- condList[i]
+  i=i+1;
+  j=j+1;
+}
+
+#rename new fields
+j <- 5
+i <- 1
+k <- 0
+while(j<=7){
+  if(colnames(PatientCondition)[j] %in% Condition$ConditionGuid) {
+    k=which(Condition$ConditionGuid %in% colnames(PatientCondition)[j])
+    colnames(PatientCondition)[j] <- Condition$Name[k]
+  }
+  j <- j + 1;
+  
+}
