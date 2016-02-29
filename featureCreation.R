@@ -410,5 +410,54 @@ while(j<=7){
     colnames(PatientCondition)[j] <- Condition$Name[k]
   }
   j <- j + 1;
-  
 }
+
+#Prescription
+training_prescription<-dbGetQuery(con, "SELECT * FROM training_prescription")
+test_prescription<-dbGetQuery(con, "SELECT * FROM test_prescription")
+
+Prescription<-rbind(training_prescription, test_prescription)
+rm("training_prescription","test_prescription")
+
+NewPrescription <- data.frame(PatientGuid= character(), TotalCount=list())
+
+TotalRefillsNeeded<-aggregate(cbind(RefillAsNeeded)~PatientGuid, data=Prescription, function(x) sum(x))
+names(TotalRefillsNeeded) <- c('PatientGuid','TotalRefillsNeeded')
+NewPrescription <- TotalRefillsNeeded
+
+MeanRefillsNeeded<-aggregate(cbind(RefillAsNeeded)~PatientGuid, data=Prescription, function(x) mean(x))
+names(MeanRefillsNeeded) <- c('PatientGuid','MeanRefillsNeeded')
+NewPrescription <- merge(NewPrescription,MeanRefillsNeeded,by="PatientGuid",all.x=TRUE)
+
+Prescription$NumberOfRefills[is.na(Prescription$NumberOfRefills)] <- 0
+Prescription$NumberOfRefills <- as.numeric(Prescription$NumberOfRefills)
+
+TotalNumberOfRefills <- aggregate(cbind(NumberOfRefills)~PatientGuid, data=Prescription, function(x) sum(x))
+names(TotalNumberOfRefills) <- c('PatientGuid','TotalNumberOfRefills')
+NewPrescription <- merge(NewPrescription,TotalNumberOfRefills,by="PatientGuid",all.x=TRUE)
+
+MeanNumberOfRefills <- aggregate(cbind(NumberOfRefills)~PatientGuid, data=Prescription, function(x) mean(x))
+names(MeanNumberOfRefills) <- c('PatientGuid','MeanNumberOfRefills')
+NewPrescription <- merge(NewPrescription,MeanNumberOfRefills,by="PatientGuid",all.x=TRUE)
+
+
+GenericCount <- aggregate(cbind(GenericAllowed)~PatientGuid, data=Prescription, function(x) sum(x))
+names(GenericCount) <- c('PatientGuid','GenericCount')
+NewPrescription <- merge(NewPrescription,GenericCount,by="PatientGuid",all.x=TRUE)
+
+
+TotalPresciptions <- aggregate(PrescriptionGuid~PatientGuid, data=Prescription, function(x) length(x))
+names(TotalPresciptions) <- c('PatientGuid','TotalPresciptions')
+NewPrescription <- merge(NewPrescription,TotalPresciptions,by="PatientGuid",all.x=TRUE)
+
+
+ByPresciptionYear <- aggregate(PrescriptionGuid~PatientGuid + PrescriptionYear,  data=Prescription, function(x) length(x))
+names(ByPresciptionYear) <- c('PatientGuid','PrescriptionYear','ByPresciptionYear')
+
+MeanPresciptions <- aggregate(cbind(ByPresciptionYear)~PatientGuid, data=ByPresciptionYear, function(x) mean(x))
+names(MeanPresciptions) <- c('PatientGuid','MeanPresciptions')
+NewPrescription <- merge(NewPrescription,MeanPresciptions,by="PatientGuid",all.x=TRUE)
+
+NewPrescription$RefillsByPrescription <- with(NewPrescription, TotalRefillsNeeded/TotalPresciptions)
+
+NewPrescription$GenericByPrescription <- with(NewPrescription, GenericCount/TotalPresciptions)
