@@ -461,3 +461,67 @@ NewPrescription <- merge(NewPrescription,MeanPresciptions,by="PatientGuid",all.x
 NewPrescription$RefillsByPrescription <- with(NewPrescription, TotalRefillsNeeded/TotalPresciptions)
 
 NewPrescription$GenericByPrescription <- with(NewPrescription, GenericCount/TotalPresciptions)
+
+
+
+#Lab
+training_labs <- dbGetQuery(con, "SELECT * FROM training_labs")
+test_labs <- dbGetQuery(con, "SELECT * FROM test_labs")
+
+training_labPanel <- dbGetQuery(con, "SELECT * FROM training_labPanel")
+test_labPanel <- dbGetQuery(con, "SELECT * FROM test_labPanel")
+
+training_labResult <- dbGetQuery(con, "SELECT * FROM training_labResult")
+test_labResult <- dbGetQuery(con, "SELECT * FROM test_labResult")
+
+
+#Medication
+training_medication<-dbGetQuery(con, "SELECT * FROM training_medication")
+test_medication<-dbGetQuery(con, "SELECT * FROM test_medication")
+
+Medication <- rbind(training_medication, test_medication)
+rm("training_medication", "test_medication")
+
+setwd("/home/srishti/workspace/csv files")
+temp = list.files(pattern="*.csv")
+
+setNames(temp,gsub(".csv",'',temp))
+Medication$Schizophrenia <- ifelse(Medication$MedicationNdcCode %in% SAA.A.$ndc_code, 1, 0)
+
+Medication$PersistentMedications <- ifelse(Medication$MedicationNdcCode %in% MPM.B.$ndc_code || Medication$MedicationNdcCode %in% MPM.C.$ndc_code || Medication$MedicationNdcCode %in% MPM.D.$ndc_code, 1, 0)
+
+Medication$AntibioticUtilization <- ifelse(Medication$MedicationNdcCode %in% ABX.A.$ndc_code || Medication$MedicationNdcCode %in% ABX.B.$ndc_code || Medication$MedicationNdcCode %in% ABX.C.$ndc_code, 1, 0)
+
+Medication$Antidepressants <- ifelse(Medication$MedicationNdcCode %in% AMM.C.$ndc_code, 1, 0)
+
+Medication$Pharyngitis <- ifelse(Medication$MedicationNdcCode %in% CWP.C.$ndc_code, 1, 0)
+
+Medication$Asthama <- ifelse(Medication$MedicationNdcCode %in% AMR.A.$ndc_code, 1, 0)
+
+Medication$AcuteBronchitis <- ifelse(Medication$MedicationNdcCode %in% AAB.D.$ndc_code, 1, 0)
+
+Medication$Chlamydia <- ifelse(Medication$MedicationNdcCode %in% CHL.A.$ndc_code || Medication$MedicationNdcCode %in% CHL.E.$ndc_code,  1, 0)
+
+Medication$Diabetes <- ifelse(Medication$MedicationNdcCode %in% CDC.A.$ndc_code || Medication$MedicationNdcCode %in% CDC.L.$ndc_code,  1, 0)
+
+Medication$IschemicVascularDiseaseCare <- ifelse(Medication$MedicationNdcCode %in% IVD.E.$ndc_code, 1, 0)
+
+Medication$IschemicVascularDiseaseMgmt <- ifelse(Medication$MedicationNdcCode %in% DIVD.G.$ndc_code, 1, 0)
+
+Medication$AntipsychoticMedications <- ifelse(Medication$MedicationNdcCode %in% SSD.D.$ndc_code, 1, 0)
+
+Medication$AntiRheumatic <- ifelse(Medication$MedicationNdcCode %in% ART.C.$ndc_code, 1, 0)
+
+Medication$ADHDMedication <- ifelse(Medication$MedicationNdcCode %in% ADD.A.$ndc_code, 1, 0)
+
+Medication$Osteoporosis <- ifelse(Medication$MedicationNdcCode %in% OMW.C.$ndc_code, 1, 0)
+
+Medication$BetaBlockerTreatmentAfterHeartAttack <- ifelse(Medication$MedicationNdcCode %in% PBH.B.$ndc_code || Medication$MedicationNdcCode %in% PBH.D.$ndc_code, 1, 0)
+
+Medication$COPDExacerbation <- ifelse(Medication$MedicationNdcCode %in% PCE.C.$ndc_code || Medication$MedicationNdcCode %in% PCE.D.$ndc_code, 1, 0)
+
+Medication$HarmfulDrugDiseaseInteractions <- ifelse(Medication$MedicationNdcCode %in% DDE.A.$ndc_code || Medication$MedicationNdcCode %in% DDE.B.$ndc_code || Medication$MedicationNdcCode %in% DDE.C.$ndc_code || Medication$MedicationNdcCode %in% DDE.D.$ndc_code || Medication$MedicationNdcCode %in% DDE.E.$ndc_code, 1, 0)
+
+Medication$AsthamaMedication <- ifelse(Medication$MedicationNdcCode %in% ASM.C.$ndc_code || Medication$MedicationNdcCode %in% ASM.D.$ndc_code,  1, 0)
+
+Medication$HighRiskMedications <- ifelse(Medication$MedicationNdcCode %in% DAE.A.$ndc_code || Medication$MedicationNdcCode %in% DAE.B.$ndc_code || Medication$MedicationNdcCode %in% DAE.C.$ndc_code,  1, 0)
