@@ -240,6 +240,21 @@ Patient <- merge(Patient,NumSpecialties,by="PatientGuid",all.x=TRUE)
 Patient[is.na(Patient[,ncol(Patient)]),ncol(Patient)]<-0 
 
 
+gc()
+
+SingleFeaturesTable <- Patient
+rm("Patient")
+
+rm("HeightMedian", "WeightMedian", "WeightMaxT", "BMIMaxT", "BMIMinT", "BMIMedian", "SystolicBPMaxT", "SystolicBPMinT" )
+
+rm("SystolicBPMedian" , "DiastolicBPMaxT", "DiastolicBPMinT", "DiastolicBPMedian", "RespiratoryRateMaxT", "RespiratoryRateMedian", "TemperatureRank2nd", "TemperatureMedian")
+
+rm("InternalMedicine" , "CardiovascularDisease", "FamilyPractice", "GeneralPractice", "Podiatry", "NumSpecialties")
+
+
+# SingleFeaturesTable <- merge(SingleFeaturesTable, Transcript, by = "PatientGuid" , all.x = TRUE)
+rm("Transcript")
+
 # Allergen
 trainingAllergy<-dbGetQuery(con, "SELECT * FROM training_allergy")
 testAllergy<-dbGetQuery(con, "SELECT * FROM test_allergy")
@@ -302,6 +317,15 @@ while(i<26){
   j=j+1;
 }
 
+rm("reactionList","allergyList")
+
+gc()
+
+SingleFeaturesTable <- merge(SingleFeaturesTable, Allergy, by = "PatientGuid" , all.x = TRUE)
+rm("Allergy")
+
+
+
 #Smoke codes
 SmokeCode<-dbGetQuery(con, "SELECT * FROM smokingStatus")
 
@@ -322,6 +346,7 @@ while(i<=7383){
     smokeList[length(smokeList)+1]=SmokingStatus$SmokingStatusGuid[i]
   i=i+1
 }
+
 
 #create new fields
 i=1
@@ -357,6 +382,11 @@ while(i<7384){
   i <- i + 1;
   
 }
+gc()
+
+SingleFeaturesTable <- merge(SingleFeaturesTable, SmokingStatus, by = "PatientGuid" , all.x = TRUE)
+rm("smokeList")
+rm("SmokeCode","SmokingStatus")
 
 
 #Condition
@@ -412,6 +442,11 @@ while(j<=7){
   j <- j + 1;
 }
 
+rm("condList")
+rm("Condition")
+SingleFeaturesTable <- merge(SingleFeaturesTable, PatientCondition, by = "PatientGuid" , all.x = TRUE)
+rm("PatientCondition")
+
 #Prescription
 training_prescription<-dbGetQuery(con, "SELECT * FROM training_prescription")
 test_prescription<-dbGetQuery(con, "SELECT * FROM test_prescription")
@@ -446,33 +481,30 @@ names(GenericCount) <- c('PatientGuid','GenericCount')
 NewPrescription <- merge(NewPrescription,GenericCount,by="PatientGuid",all.x=TRUE)
 
 
-TotalPresciptions <- aggregate(PrescriptionGuid~PatientGuid, data=Prescription, function(x) length(x))
-names(TotalPresciptions) <- c('PatientGuid','TotalPresciptions')
-NewPrescription <- merge(NewPrescription,TotalPresciptions,by="PatientGuid",all.x=TRUE)
+TotalPrescriptions <- aggregate(PrescriptionGuid~PatientGuid, data=Prescription, function(x) length(x))
+names(TotalPrescriptions) <- c('PatientGuid','TotalPrescriptions')
+NewPrescription <- merge(NewPrescription,TotalPrescriptions,by="PatientGuid",all.x=TRUE)
 
 
-ByPresciptionYear <- aggregate(PrescriptionGuid~PatientGuid + PrescriptionYear,  data=Prescription, function(x) length(x))
-names(ByPresciptionYear) <- c('PatientGuid','PrescriptionYear','ByPresciptionYear')
+ByPrescriptionYear <- aggregate(PrescriptionGuid~PatientGuid + PrescriptionYear,  data=Prescription, function(x) length(x))
+names(ByPrescriptionYear) <- c('PatientGuid','PrescriptionYear','ByPrescriptionYear')
 
-MeanPresciptions <- aggregate(cbind(ByPresciptionYear)~PatientGuid, data=ByPresciptionYear, function(x) mean(x))
-names(MeanPresciptions) <- c('PatientGuid','MeanPresciptions')
-NewPrescription <- merge(NewPrescription,MeanPresciptions,by="PatientGuid",all.x=TRUE)
+MeanPrescriptions <- aggregate(cbind(ByPrescriptionYear)~PatientGuid, data=ByPrescriptionYear, function(x) mean(x))
+names(MeanPrescriptions) <- c('PatientGuid','MeanPrescriptions')
+NewPrescription <- merge(NewPrescription,MeanPrescriptions,by="PatientGuid",all.x=TRUE)
 
-NewPrescription$RefillsByPrescription <- with(NewPrescription, TotalRefillsNeeded/TotalPresciptions)
+NewPrescription$RefillsByPrescription <- with(NewPrescription, TotalRefillsNeeded/TotalPrescriptions)
 
-NewPrescription$GenericByPrescription <- with(NewPrescription, GenericCount/TotalPresciptions)
+NewPrescription$GenericByPrescription <- with(NewPrescription, GenericCount/TotalPrescriptions)
 
+Prescription <- merge(Prescription,NewPrescription,by="PatientGuid",all.x=TRUE)
+rm("NewPrescription")
 
+rm("TotalRefillsNeeded" , "MeanRefillsNeeded", "TotalNumberOfRefills", "MeanNumberOfRefills", "GenericCount", "TotalPrescriptions", "ByPrescriptionYear", "MeanPrescriptions")
+gc()
+SingleFeaturesTable <- merge(SingleFeaturesTable, Prescription, by = "PatientGuid", all.x = TRUE)
+rm("Prescription")
 
-#Lab
-training_labs <- dbGetQuery(con, "SELECT * FROM training_labs")
-test_labs <- dbGetQuery(con, "SELECT * FROM test_labs")
-
-training_labPanel <- dbGetQuery(con, "SELECT * FROM training_labPanel")
-test_labPanel <- dbGetQuery(con, "SELECT * FROM test_labPanel")
-
-training_labResult <- dbGetQuery(con, "SELECT * FROM training_labResult")
-test_labResult <- dbGetQuery(con, "SELECT * FROM test_labResult")
 
 
 #Medication
@@ -483,9 +515,19 @@ Medication <- rbind(training_medication, test_medication)
 rm("training_medication", "test_medication")
 
 setwd("/home/srishti/workspace/csv files")
+
+
+
 temp = list.files(pattern="*.csv")
+for (i in 1:length(temp)) assign(temp[i], read.csv(temp[i]))
 
 setNames(temp,gsub(".csv",'',temp))
+list2env(
+  lapply(setNames(temp, make.names(gsub("*csv$", "", temp))), 
+         read.csv), envir = .GlobalEnv)
+
+
+
 Medication$Schizophrenia <- ifelse(Medication$MedicationNdcCode %in% SAA.A.$ndc_code, 1, 0)
 
 Medication$PersistentMedications <- ifelse(Medication$MedicationNdcCode %in% MPM.B.$ndc_code || Medication$MedicationNdcCode %in% MPM.C.$ndc_code || Medication$MedicationNdcCode %in% MPM.D.$ndc_code, 1, 0)
@@ -525,3 +567,68 @@ Medication$HarmfulDrugDiseaseInteractions <- ifelse(Medication$MedicationNdcCode
 Medication$AsthamaMedication <- ifelse(Medication$MedicationNdcCode %in% ASM.C.$ndc_code || Medication$MedicationNdcCode %in% ASM.D.$ndc_code,  1, 0)
 
 Medication$HighRiskMedications <- ifelse(Medication$MedicationNdcCode %in% DAE.A.$ndc_code || Medication$MedicationNdcCode %in% DAE.B.$ndc_code || Medication$MedicationNdcCode %in% DAE.C.$ndc_code,  1, 0)
+
+gc()
+
+
+rm(list=temp)
+
+rm(temp)
+rm("AAB.D.","ABX.A.","ABX.B.","ABX.C.","ADD.A.","AMM.C.","AMR.A.","ART.C.","ASM.C.","PCE.C.","ASM.D.","CDC.A.","CDC.L.","CHL.A.","CHL.E.","CWP.C.","DAE.A.","DAE.B.","DAE.C.","DDE.A.","DDE.B.","DDE.C.","DDE.D.", "DDE.E.", "DIVD.G.", "IVD.E.", "MPM.B.", "MPM.C.", "MPM.D.", "OMW.C.", "PBH.B.", "PBH.D.", "PCE.D.", "SAA.A.", "SSD.D.")
+
+gc()
+SingleFeaturesTable <- merge(SingleFeaturesTable, Medication,by = "PatientGuid", all.x = TRUE)
+rm("Medication")
+
+#Diagnosis
+training_diagnosis <- dbGetQuery(con, "SELECT * FROM training_diagnosis")
+test_diagnosis <- dbGetQuery(con, "SELECT * FROM test_diagnosis")
+
+Diagnosis <- rbind(training_diagnosis,test_diagnosis)
+rm("training_diagnosis", "test_diagnosis")
+
+Diagnosis$ICD9Code <- substr(Diagnosis$ICD9Code, 1, which(strsplit(Diagnosis$ICD9Code, '')[[1]]=='.')-1)
+
+SingleFeaturesTable <- merge(SingleFeaturesTable, Diagnosis, by = "PatientGuid" , all.x = TRUE)
+rm("Diagnosis")
+
+
+#Lab
+training_labs <- dbGetQuery(con, "SELECT * FROM training_labObservation")
+test_labs <- dbGetQuery(con, "SELECT * FROM test_labObservation")
+colnames(test_labs)[5] <- names(training_labs)[5]
+colnames(test_labs)[13] <- names(training_labs)[13]
+
+training_labPanel <- dbGetQuery(con, "SELECT * FROM training_labPanel")
+test_labPanel <- dbGetQuery(con, "SELECT * FROM test_labPanel")
+
+training_labResult <- dbGetQuery(con, "SELECT * FROM training_labResult")
+test_labResult <- dbGetQuery(con, "SELECT * FROM test_labResult")
+
+Labs <- rbind(training_labs, test_labs)
+LabPanel <- rbind(training_labPanel, test_labPanel)
+LabResult <- rbind(training_labResult, test_labResult)
+
+rm("training_labs", "test_labs")
+rm("training_labPanel", "test_labPanel")
+rm("training_labResult", "test_labResult")
+
+
+
+LabTable <- LabPanel
+LabTable <- merge(LabTable,Labs,by="LabPanelGuid", all.x  = TRUE)
+LabTable <- LabTable <- merge(LabTable,LabResult,by="LabResultGuid", all.x  = TRUE)
+rm("LabPanel","LabResult","Labs")
+
+
+SingleFeaturesTable <- merge(SingleFeaturesTable, LabTable, by = "PatientGuid" , all.x = TRUE)
+rm("LabTable")
+
+
+
+# warnings()
+
+
+
+
+
