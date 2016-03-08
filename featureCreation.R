@@ -650,6 +650,6 @@ LabTable <- merge(LabTable,Labs,by="LabPanelGuid", all.x  = TRUE)
 LabTable <- LabTable <- merge(LabTable,LabResult,by="LabResultGuid", all.x  = TRUE)
 Patient[is.na(Patient[,])]<-0 
 
-rm("Condition", "LabPanel","LabResult","Labs","SmokeCode")
+rm("LabPanel","LabResult","Labs")
 # 
 # 
