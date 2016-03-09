@@ -482,7 +482,7 @@ Patient <- merge(Patient,NewPrescription,by="PatientGuid",all.x=TRUE)
 rm("NewPrescription")
 rm("Prescription")
 
-
+rm("Transcript")
 
 rm("HeightMedian", "WeightMedian", "WeightMaxT", "BMIMaxT", "BMIMinT", "BMIMedian", "SystolicBPMaxT", "SystolicBPMinT" )
 
@@ -491,7 +491,6 @@ rm("SystolicBPMedian" , "DiastolicBPMaxT", "DiastolicBPMinT", "DiastolicBPMedian
 rm("InternalMedicine" , "CardiovascularDisease", "FamilyPractice", "GeneralPractice", "Podiatry", "NumSpecialties")
 
 rm("TotalRefillsNeeded" , "MeanRefillsNeeded", "TotalNumberOfRefills", "MeanNumberOfRefills", "GenericCount", "TotalPrescriptions", "ByPrescriptionYear", "MeanPrescriptions")
-
 
 #Medication
 training_medication<-dbGetQuery(con, "SELECT * FROM training_medication")
@@ -567,7 +566,7 @@ gc()
 
 temp1 <- substr(temp, 1, which(strsplit(temp, '')[[1]]=='.')-1)
 rm(list=temp)
-
+rm("temp", "temp1")
 rm("AAB.D.","ABX.A.","ABX.B.","ABX.C.","ADD.A.","AMM.C.","AMR.A.","ART.C.","ASM.C.","PCE.C.","ASM.D.","CDC.A.","CDC.L.","CHL.A.","CHL.E.","CWP.C.","DAE.A.","DAE.B.","DAE.C.","DDE.A.","DDE.B.","DDE.C.","DDE.D.", "DDE.E.", "DIVD.G.", "IVD.E.", "MPM.B.", "MPM.C.", "MPM.D.", "OMW.C.", "PBH.B.", "PBH.D.", "PCE.D.", "SAA.A.", "SSD.D.")
 
 
@@ -589,28 +588,55 @@ Diagnosis$Duration <-  Diagnosis$StopYear - Diagnosis$StartYear + 1
 Diagnosis$Duration[Diagnosis$Duration > 1000] <- 0
 Diagnosis$Duration[Diagnosis$Duration < -1000] <- 0
 
+setwd("/home/srishti/workspace")
+Diagnosis$ICD9Code <- substr(Diagnosis$ICD9Code, 1, which(strsplit(Diagnosis$ICD9Code, '')[[1]]=='.')-1)
+ICD9 = read.csv("icd9.csv", header = TRUE)
+
+#classify
+
+Diagnosis$ICD9Code[(substr(Diagnosis$ICD9Code, 1, 1) == "V") | (substr(Diagnosis$ICD9Code, 1, 1) == "E") | (substr(Diagnosis$ICD9Code, 1, 1) == "e") | (substr(Diagnosis$ICD9Code, 1, 1) == "v") ] <- -1
 # 
-# ICD9 = read.csv("icd9-1.csv", header = TRUE)
-# # ICD9$Column2 <- NULL
-# # ICD9$Column3 <- NULL
-# # ICD9$Column.5 <- NULL
-# # 
-# # colnames(ICD9)[1] <- "Category"
-# # colnames(ICD9)[2] <- "Codes"
-# 
-# 
-# #create list
-# i=1
-# diagList = c()
-# while(i<=1485){
-#   if(!(ICD9$Category[i] %in% diagList))
-#     diagList[length(diagList)+1]=ICD9$Category[i]
-#   i=i+1
-# }
-# 
+# Diagnosis$ICD9Code[(substr(Diagnosis$ICD9Code, 1, 1) == "V") ] <- "External causes of injury and supplemental classification"
+# Diagnosis$ICD9Code[(substr(Diagnosis$ICD9Code, 1, 1) == "E") ] <- "External causes of injury and supplemental classification"
+
+Diagnosis$ICD9Code <- as.numeric(Diagnosis$ICD9Code)
+
+i <- 1
+k <- -1
+
+while(i <= 142741){
+  if(Diagnosis$ICD9Code[i] != -1){
+    k <- which((as.numeric(Diagnosis$ICD9Code[i]) > ICD9$upper) == FALSE)[1]
+    Diagnosis$ICD9Code[i] <- as.character(ICD9$category[k])
+  }
+  i <- i + 1
+}
+
+Diagnosis$ICD9Code[Diagnosis$ICD9Code == -1] <- "External causes of injury and supplemental classification"
 
 
 
+#create new list
+i <- 1
+diagList <- c()
+while(i <= 70){
+  if(!(ICD9$category[i] %in% diagList))
+    diagList[length(diagList)+1] <- as.character(ICD9$category[i])
+  i <- i+1
+}
+diagList[length(diagList) + 1] <- "External causes of injury and supplemental classification"
+
+#create new fields
+i <- 1
+j <- 10
+while(i <= 71){
+  current <- ifelse(Diagnosis$Duration == 0, 1, 2)
+  acute <- ifelse(Diagnosis$Acute == 1, 2, 1)
+  Diagnosis$diagList <- ifelse(Diagnosis$ICD9Code == diagList[i], 1 + (log((Diagnosis$StopYear - Diagnosis$StartYear + 1), base = exp(1)))*(Diagnosis$Acute/current), 0);
+  colnames(Diagnosis)[j] <- diagList[i]
+  i=i+1;
+  j=j+1;
+}
 
 Patient <- merge(Patient, Diagnosis, by = 'PatientGuid', all.x = TRUE)
 Patient$DiagnosisGuid <- NULL
@@ -622,7 +648,8 @@ Patient$Acute <- NULL
 Patient$UserGuid <- NULL
 
 rm("Diagnosis")
-
+rm("diagList")
+rm("ICD9")
 #Lab
 training_labs <- dbGetQuery(con, "SELECT * FROM training_labObservation")
 test_labs <- dbGetQuery(con, "SELECT * FROM test_labObservation")
