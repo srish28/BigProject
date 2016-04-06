@@ -250,8 +250,10 @@ rm("HeightMedian", "WeightMedian", "WeightMaxT", "BMIMaxT", "BMIMinT", "BMIMedia
 rm("SystolicBPMedian" , "DiastolicBPMaxT", "DiastolicBPMinT", "DiastolicBPMedian", "RespiratoryRateMaxT", "RespiratoryRateMedian", "TemperatureRank2nd", "TemperatureMedian")
 
 rm("InternalMedicine" , "CardiovascularDisease", "FamilyPractice", "GeneralPractice", "Podiatry", "NumSpecialties")
+rm("MaxTruncated", "MinTruncated", "quart", "Rank2nd")
 
 #Lab
+setwd("/home/srishti/workspace")
 LabTable <- read.csv("modifiedLab.csv", header = TRUE)
 
 #create new list
@@ -273,8 +275,36 @@ while(i <= 87){
   i=i+1;
   j=j+1;
 }
+LabTable$Status <- as.character(LabTable$Status)
+LabTable$Status <- ifelse(LabTable$Status == "Final", 1, 0)
+
+LabTable$ResultStatus <- as.character(LabTable$ResultStatus)
+LabTable$ResultStatus<- ifelse(LabTable$ResultStatus == "Final", 1, 0)
+
+
 rm("labList")
 
+#create new list
+i <- 1
+labList <- c()
+while(i <= 3470){
+  if(!(LabTable$ObservationValue[i] %in% labList))
+    labList[length(labList)+1] <- as.character(LabTable$ObservationValue[i])
+  i <- i+1
+}
+
+
+#create new fields
+i <- 1
+j <- 109
+while(i <= 810){
+  LabTable$labList <- ifelse(LabTable$ObservationValue == labList[i], 1, 0);
+  colnames(LabTable)[j] <- labList[i]
+  i=i+1;
+  j=j+1;
+}
+
+LabTable$ObservationValue <- NULL
 LabTable$LabResultGuid <- NULL
 LabTable$LabPanelGuid <- NULL
 LabTable$PanelName <- NULL
@@ -284,10 +314,26 @@ LabTable$FacilityGuid <- NULL
 LabTable$AncestorLabResultGuid <- NULL
 LabTable$PracticeGuid <- NULL
 LabTable$ReportYear <- NULL
+LabTable$HL7Text <- NULL
+LabTable$HL7Identifier <- NULL
+LabTable$HL7CodingSystem <- NULL
+LabTable$AbnormalFlags <- NULL
+LabTable$IsAbnormalValue <- NULL
+LabTable$Units <- NULL
+LabTable$ReferenceRange <- NULL
+LabTable$Column <- NULL
 
 Patient <- merge(Patient, LabTable, by = 'PatientGuid', all.x = TRUE)
-rm("LabTable")
+
+
+rm("LabTable", "labList")
 Patient[is.na(Patient[,ncol(Patient)]),ncol(Patient)]<-0 
+Patient[is.na(Patient)] <- 0
+Patient <- Patient[!duplicated(Patient), ]
+
+
+
+
 
 # Allergen
 trainingAllergy<-dbGetQuery(con, "SELECT * FROM training_allergy")
@@ -355,9 +401,11 @@ Allergy$MedicationName <- NULL
 
 Patient <- merge(Patient, Allergy, by = 'PatientGuid', all.x = TRUE)
 Patient[is.na(Patient[,ncol(Patient)]),ncol(Patient)]<-0 
+Patient[is.na(Patient)] <- 0
+
+Patient <- Patient[!duplicated(Patient), ]
 
 rm("Allergy")
-
 
 #Smoke codes
 SmokeCode<-dbGetQuery(con, "SELECT * FROM smokingStatus")
@@ -418,12 +466,17 @@ while(i<7384){
 SmokingStatus$PatientSmokingStatusGuid <- NULL
 SmokingStatus$SmokingStatusGuid <- NULL
 SmokingStatus$EffectiveYear <- NULL
+
 rm("smokeList", "SmokeCode")
 Patient <- merge(Patient, SmokingStatus, by='PatientGuid', all.x = TRUE)
 
 Patient[is.na(Patient[,ncol(Patient)]),ncol(Patient)]<-0 
 
 rm("SmokingStatus")
+Patient[is.na(Patient)] <- 0
+Patient <- Patient[!duplicated(Patient), ]
+
+
 
 #Condition
 Condition <-dbGetQuery(con, "SELECT * FROM condition")
@@ -473,6 +526,10 @@ Patient <- merge(Patient, PatientCondition, by='PatientGuid', all.x = TRUE)
 
 Patient[is.na(Patient[,ncol(Patient)]),ncol(Patient)]<-0 
 rm("PatientCondition","condList","Condition")
+
+Patient <- Patient[!duplicated(Patient), ]
+
+
 
 #Prescription
 training_prescription<-dbGetQuery(con, "SELECT * FROM training_prescription")
@@ -528,6 +585,8 @@ rm("TotalRefillsNeeded" , "MeanRefillsNeeded", "TotalNumberOfRefills", "MeanNumb
 Patient <- merge(Patient,NewPrescription,by="PatientGuid",all.x=TRUE)
 rm("NewPrescription")
 Patient[is.na(Patient[,ncol(Patient)]),ncol(Patient)]<-0 
+
+Patient <- Patient[!duplicated(Patient), ]
 
 
 #Medication
@@ -591,7 +650,7 @@ Medication$AsthamaMedication <- ifelse(Medication$MedicationNdcCode %in% ASM.C.$
 
 Medication$HighRiskMedications <- ifelse(Medication$MedicationNdcCode %in% DAE.A.$ndc_code || Medication$MedicationNdcCode %in% DAE.B.$ndc_code || Medication$MedicationNdcCode %in% DAE.C.$ndc_code,  1, 0)
 
-Patient <- merge(Patient, Medication, by='PatientGuid', all.x = TRUE)
+
 
 
 temp1 <- substr(temp, 1, which(strsplit(temp, '')[[1]]=='.')-1)
@@ -607,9 +666,20 @@ Medication$MedicationStrength <- NULL
 Medication$Schedule <- NULL
 Medication$DiagnosisGuid <- NULL
 Medication$UserGuid <- NULL
+
+
+
+Patient <- merge(Patient, Medication, by='PatientGuid', all.x = TRUE)
 rm("Medication")
 gc()
 Patient[is.na(Patient[,ncol(Patient)]),ncol(Patient)]<-0 
+Patient[is.na(Patient)] <- 0
+
+
+Patient <- Patient[!duplicated(Patient), ]
+
+
+
 
 #Diagnosis
 training_diagnosis <- dbGetQuery(con, "SELECT * FROM training_diagnosis")
@@ -631,7 +701,7 @@ Diagnosis$Duration[Diagnosis$Duration < -1000] <- 0
 setwd("/home/srishti/workspace")
 Diagnosis$ICD9Code <- substr(Diagnosis$ICD9Code, 1, which(strsplit(Diagnosis$ICD9Code, '')[[1]]=='.')-1)
 ICD9 = read.csv("icd9.csv", header = TRUE)
-
+Diagnosis$DiagnosisGuid <- NULL
 #classify
 
 Diagnosis$ICD9Code[(substr(Diagnosis$ICD9Code, 1, 1) == "V") | (substr(Diagnosis$ICD9Code, 1, 1) == "E") | (substr(Diagnosis$ICD9Code, 1, 1) == "e") | (substr(Diagnosis$ICD9Code, 1, 1) == "v") ] <- -1
@@ -665,7 +735,7 @@ diagList[length(diagList) + 1] <- "External causes of injury and supplemental cl
 
 #create new fields
 i <- 1
-j <- 10
+j <- 9
 while(i <= 71){
   current <- ifelse(Diagnosis$Duration == 0, 1, 2)
   acute <- ifelse(Diagnosis$Acute == 1, 2, 1)
@@ -677,7 +747,7 @@ while(i <= 71){
 rm("current","acute")
 rm("diagList")
 rm("ICD9")
-Diagnosis$DiagnosisGuid <- NULL
+
 Diagnosis$ICD9Code <- NULL
 Diagnosis$DiagnosisDescription <- NULL
 Diagnosis$StartYear <- NULL
@@ -685,12 +755,259 @@ Diagnosis$StopYear <- NULL
 Diagnosis$Acute <- NULL
 Diagnosis$UserGuid <- NULL
 
+Diagnosis <- Diagnosis[!duplicated(Diagnosis), ]
+
 Patient <- merge(Patient, Diagnosis, by = 'PatientGuid', all.x = TRUE)
 Patient[is.na(Patient[,ncol(Patient)]),ncol(Patient)]<-0 
+Patient[is.na(Patient)] <- 0
 rm("Diagnosis")
 
 
+Patient$UserGuid <- NULL
+Patient$MedicationGuid <- NULL 
+Patient$MedicationName <- NULL
+Patient$MedicationNdcCode <- NULL
+
+Patient$HL7Text <- NULL
+Patient$HL7Identifier <- NULL
+Patient$HL7CodingSystem <- NULL
+Patient$AbnormalFlags <- NULL
+
+
+#create new state list
+i <- 1
+stateList <- c()
+while(i <= 148781){
+  if(!(Patient$State[i] %in% stateList))
+    stateList[length(stateList)+1] <- as.character(Patient$State[i])
+  i <- i+1
+}
+
+#create new year list
+i <- 1
+yearList <- c()
+while(i <= 148781){
+  if(!(Patient$YearOfBirth[i] %in% yearList))
+    yearList[length(yearList)+1] <- as.character(Patient$YearOfBirth[i])
+  i <- i+1
+}
+
+
+i <- 1
+j <- 282
+while(i <= 52){
+  Patient$stateList <- ifelse(Patient$State == stateList[i], 1, 0);
+  colnames(Patient)[j] <- stateList[i]
+  i=i+1;
+  j=j+1;
+}
+
+i <- 1
+j <- 333
+while(i <= 73){
+  Patient$yearList <- ifelse(Patient$YearOfBirth == yearList[i], 1, 0);
+  colnames(Patient)[j] <- yearList[i]
+  i=i+1;
+  j=j+1;
+}
+
+Patient$Male <-  ifelse(Patient$Gender == 'M', 1, 0)
+Patient$Female <-  ifelse(Patient$Gender == 'F', 1, 0)
+Patient$Gender <- NULL
+Patient$State <- NULL
+Patient$YearOfBirth <- NULL
+
+write.csv(Patient,"SingleFeaturesTable.csv")
+
+Patient <- read.csv("SingleFeaturesTable.csv")
+Patient$X <- NULL
+Patient <- Patient[c(1,3,2,4:ncol(Patient))]
+
+library(caret)
+
+
+#removing near zero and zero
+nzv <- nearZeroVar(Patient)
+#near zero and zero removed
+nzvPatient <- Patient[, -nzv]
+
+nzv <- nearZeroVar(Patient, saveMetrics = TRUE, names = TRUE, foreach = FALSE, allowParallel = TRUE)
+
+zv <- nzv[nzv[, "zeroVar"] >0, ]
+zvRow <- rownames(zv)
+zvId <- match(zvRow, names(Patient))
+
+#zero variance removed
+zvPatient <- Patient[, -zvId]
+
+
+#find correlation in nzv
+train <- cor(nzvPatient[4:ncol(nzvPatient)])
+nzvCorr <- c()
+j <- 1
+i <- 0
+
+y <- c()
+while(i <= 1.05){
+  print(i)
+  y[j] <- i
+  corr <- findCorrelation(train, cutoff = i, verbose = FALSE, names = FALSE, exact = FALSE)
+  
+  i <- i + 0.10
+  
+  nzvCorr[j] <- length(corr)
+  j <- j + 1
+}
 
 
 
+#find correlation in zv
+train <- cor(zvPatient[4:ncol(zvPatient)])
+zvCorr <- c()
+j <- 1
+i <- 0
+
+y <- c()
+while(i <= 1.05){
+  print(i)
+  y[j] <- i
+  corr <- findCorrelation(train, cutoff = i, verbose = FALSE, names = FALSE, exact = FALSE)
+  
+  i <- i + 0.10
+  
+  zvCorr[j] <- length(corr)
+  j <- j + 1
+}
+
+
+numberOfFeaturesRemoved<- zvCorr
+thresholdValue <- y
+
+plot(thresholdValue,numberOfFeaturesRemoved, type = 'o', col = 'red')
+
+numberOfFeaturesRemoved <- nzvCorr
+thresholdValue <- y
+
+lines(thresholdValue,numberOfFeaturesRemoved, type = 'o', pch=22, lty=2, col = 'blue')
+legend("topright", c("zvPatient", "nzvPatient"), cex=0.8, col=c( "red", "blue"), lty=1:3, lwd=2, bty="n")
+
+##############################
+
+
+numberOfFeaturesRemoved<- zvCorr
+thresholdValue <- y
+
+plot(thresholdValue,numberOfFeaturesRemoved, type = 'o', col = 'red')
+title(main="zv", col.main="red", font.main=4)
+
+numberOfFeaturesRemoved <- nzvCorr
+thresholdValue <- y
+
+plot(thresholdValue,numberOfFeaturesRemoved, type = 'o', pch=22, lty=2, col = 'blue')
+title(main="nzv", col.main="blue", font.main=4)
+#################################
+
+slope <- function(x1,y1,x2,y2) {
+  s <- (y2 - y1)/(x2 - x1)
+  return(s)
+} 
+
+i <- 1
+max <- -10000
+min <- 10000
+sl = c()
+while (i < length(nzvCorr)){
+  x1 <- y[i]
+  y1 <- nzvCorr[i]
+  
+  x2 <- y[i+1]
+  y2 <- nzvCorr[i+1]
+  s <- slope(x1,y1,x2,y2)
+  sl[i] <- s
+  if(s > max)
+    max <- s
+  
+  
+  if(s < min)
+    min <- s
+  
+  i <- i + 1
+}
+nzvS <- sl
+
+d <- c()
+i <- 2
+while(i <= length(sl)){
+  d[i - 1] <- sl[i] - sl[i - 1]
+  i <- i + 1
+}
+
+nzvD <- d
+
+i <- 1
+max <- -10000000
+min <- 100000000
+sl = c()
+while (i < length(zvCorr)){
+  x1 <- y[i]
+  y1 <- zvCorr[i]
+  
+  x2 <- y[i+1]
+  y2 <- zvCorr[i+1]
+  s <- slope(x1,y1,x2,y2)
+  sl[i] <- s
+  if(s > max)
+    max <- s
+  
+  
+  
+  if(s < min)
+    min <- s
+  
+  i <- i + 1
+}
+
+zvS <- sl
+
+d <- c()
+i <- 2
+while(i <= length(sl)){
+  d[i - 1] <- sl[i] - sl[i - 1]
+  i <- i + 1
+}
+
+zvD <- d
+
+
+#nzv Set
+train <- cor(nzvPatient[4:ncol(nzvPatient)])
+#Low Correlation
+nzvcorr10 <- findCorrelation(train, cutoff = 0.10, verbose = FALSE, names = FALSE, exact = FALSE)
+
+low10NzvPatient <- Patient[, -nzvcorr10]
+
+#High Correlation
+nzvcorr90 <- findCorrelation(train, cutoff = 0.90, verbose = FALSE, names = FALSE, exact = FALSE)
+high90Patient <- Patient[, -nzvcorr90]
+
+#zv
+train <- cor(zvPatient[4:ncol(nzvPatient)])
+#Low Correlation
+zvcorr10 <- findCorrelation(train, cutoff = 0.10, verbose = FALSE, names = FALSE, exact = FALSE)
+low10ZvPatient <- Patient[, -zvcorr10]
+
+#High Correlation
+zvcorr90 <- findCorrelation(train, cutoff = 0.90, verbose = FALSE, names = FALSE, exact = FALSE)
+high90ZvPatient <- Patient[, -zvcorr90]
+
+library(mlbench)
+library(FSelector)
+options(java.parameters = "-Xmx12g")
+library(rJava)
+
+cfsResult <- cfs(dmIndicator~., Patient[1:404])
+
+to.remove <-cfsResult
+'%ni%' <- Negate('%in%')
+cfsPatient <- subset(Patient, select = names(Patient) %ni% to.remove)
 
