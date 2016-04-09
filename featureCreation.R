@@ -821,17 +821,27 @@ write.csv(Patient,"SingleFeaturesTable.csv")
 
 Patient <- read.csv("SingleFeaturesTable.csv")
 Patient$X <- NULL
-Patient <- Patient[c(1,3,2,4:ncol(Patient))]
+Patient <- Patient[c(2,1,3,4:ncol(Patient))]
 
+#####
+###separating test and train
+Patient <- Patient[Patient$dmIndicator!=-1,]
+write.csv(trainPatient,"TrainSingleFeaturesTable.csv")
+Patient <- read.csv("TrainSingleFeaturesTable.csv")
+Patient$X <- NULL
 library(caret)
 
 
+mcorrPatient <- data.matrix(Patient)
+
+
 #removing near zero and zero
-nzv <- nearZeroVar(Patient)
+nzv <- nearZeroVar(mcorrPatient)
 #near zero and zero removed
 nzvPatient <- Patient[, -nzv]
 
-nzv <- nearZeroVar(Patient, saveMetrics = TRUE, names = TRUE, foreach = FALSE, allowParallel = TRUE)
+nzv <- nearZeroVar(mcorrPatient, saveMetrics = TRUE, names = TRUE, foreach = FALSE, allowParallel = TRUE)
+
 
 zv <- nzv[nzv[, "zeroVar"] >0, ]
 zvRow <- rownames(zv)
@@ -842,7 +852,7 @@ zvPatient <- Patient[, -zvId]
 
 
 #find correlation in nzv
-train <- cor(nzvPatient[4:ncol(nzvPatient)])
+train <- cor(data.matrix(nzvPatient))
 nzvCorr <- c()
 j <- 1
 i <- 0
@@ -853,16 +863,16 @@ while(i <= 1.05){
   y[j] <- i
   corr <- findCorrelation(train, cutoff = i, verbose = FALSE, names = FALSE, exact = FALSE)
   
-  i <- i + 0.10
+  i <- i + 0.05
   
-  nzvCorr[j] <- length(corr)
+  nzvCorr[j] <- ncol(nzvPatient) - length(corr)
   j <- j + 1
 }
 
 
 
 #find correlation in zv
-train <- cor(zvPatient[4:ncol(zvPatient)])
+train <- cor(data.matrix(zvPatient))
 zvCorr <- c()
 j <- 1
 i <- 0
@@ -873,9 +883,9 @@ while(i <= 1.05){
   y[j] <- i
   corr <- findCorrelation(train, cutoff = i, verbose = FALSE, names = FALSE, exact = FALSE)
   
-  i <- i + 0.10
+  i <- i + 0.05
   
-  zvCorr[j] <- length(corr)
+  zvCorr[j] <-ncol(zvPatient) - length(corr)
   j <- j + 1
 }
 
@@ -980,34 +990,104 @@ zvD <- d
 
 
 #nzv Set
-train <- cor(nzvPatient[4:ncol(nzvPatient)])
+train <- cor(data.matrix(nzvPatient))
 #Low Correlation
-nzvcorr10 <- findCorrelation(train, cutoff = 0.10, verbose = FALSE, names = FALSE, exact = FALSE)
+nzvcorr15 <- findCorrelation(train, cutoff = 0.15, verbose = FALSE, names = FALSE, exact = FALSE)
 
-low10NzvPatient <- Patient[, -nzvcorr10]
+low15NzvPatient <- nzvPatient[, -nzvcorr15]
 
 #High Correlation
-nzvcorr90 <- findCorrelation(train, cutoff = 0.90, verbose = FALSE, names = FALSE, exact = FALSE)
-high90Patient <- Patient[, -nzvcorr90]
+nzvcorr95 <- findCorrelation(train, cutoff = 0.95, verbose = FALSE, names = FALSE, exact = FALSE)
+high95NzvPatient <- nzvPatient[, -nzvcorr95]
 
 #zv
-train <- cor(zvPatient[4:ncol(nzvPatient)])
+train <- cor(data.matrix(zvPatient))
 #Low Correlation
 zvcorr10 <- findCorrelation(train, cutoff = 0.10, verbose = FALSE, names = FALSE, exact = FALSE)
-low10ZvPatient <- Patient[, -zvcorr10]
+low10ZvPatient <- zvPatient[, -zvcorr10]
 
 #High Correlation
-zvcorr90 <- findCorrelation(train, cutoff = 0.90, verbose = FALSE, names = FALSE, exact = FALSE)
-high90ZvPatient <- Patient[, -zvcorr90]
+zvcorr95 <- findCorrelation(train, cutoff = 0.95, verbose = FALSE, names = FALSE, exact = FALSE)
+high95ZvPatient <- zvPatient[, -zvcorr95]
+
+
 
 library(mlbench)
 library(FSelector)
 options(java.parameters = "-Xmx12g")
 library(rJava)
 
+
+mPatient <- data.matrix(Patient[,2:ncol(Patient)])
+mY <- data.matrix(Patient[,1])
+
+
 cfsResult <- cfs(dmIndicator~., Patient[1:404])
 
 to.remove <-cfsResult
 '%ni%' <- Negate('%in%')
 cfsPatient <- subset(Patient, select = names(Patient) %ni% to.remove)
+
+write.csv(cfsPatient,"cfsPatient.csv")
+
+rm("%ni%", slope, zvS, zvD, zvRow, zvId, zvcorr90, zvcorr10, zvCorr, y, y1, y2, x1, x2, to.remove, thresholdValue, sl, s, nzvD, nzvS, nzvcorr90, nzvcorr10, nzvCorr, numberOfFeaturesRemoved, nzv, train, zv)
+
+library(lars)
+
+#from some website
+lassoFit <- lars(mPatient, mY, type="lasso")
+summary(lassoFit)
+best_step <- lassoFit$df[which.min(lassoFit$RSS)]
+predictions <- predict(lassoFit, mPatient, s=best_step, type="fit")$fit
+plot(lassoFit)
+
+rmse <- mean((mY - ifelse(predictions == 0.5, 1, round(predictions)) )^2)
+print(rmse)
+
+
+
+library(glmnet)
+#tryin glmnet
+
+fit <- glmnet(mPatient, mY, alpha = 1)
+print(fit)
+plot(fit, xvar = 'lambda', label = TRUE)
+plot(fit, xvar = 'dev', label = TRUE)
+
+coef.exact = coef(fit, s = 0.07, exact = TRUE)
+coef.apprx = coef(fit, s = 0.07, exact = TRUE)
+cbind2(coef.exact, coef.apprx)
+
+g <- predict(fit, newx = mPatient, type = "nonzero")
+
+
+lassoPatient <- Patient[,g$s12]
+
+
+#ridge regression
+ridgeFit <- glmnet(mPatient, mY, family = "gaussian", alpha = 0, lambda = 0.001)
+summary(fit)
+predictRidge <- predict(ridgeFit, mPatient, type = "link")
+
+rmse <- mean((mY - predictRidge)^2)
+print(rmse)
+
+library(randomForest)
+#random forest selection
+#nzv correlated features removed dataset
+#low
+set.seed(4353)
+low15NzvPatient.rf <- randomForest(dmIndicator~., data = data.matrix(low15NzvPatient), ntree = 35, keep.forest = FALSE, importance = TRUE)
+#high
+high95NzvPatient.rf <- randomForest(dmIndicator~., data = data.matrix(high95NzvPatient), ntree = 80, keep.forest = FALSE, importance = TRUE)
+
+
+#zv correlated features removed dataset
+#low
+set.seed(9856)
+low10ZvPatient.rf <- randomForest(dmIndicator~., data = data.matrix(low10ZvPatient) , ntree = 500, keep.forest = FALSE, importance = TRUE)
+#high
+high95ZvPatient.rf <- randomForest(dmIndicator~., data = data.matrix(high95NzvPatient), ntree = 500, keep.forest = FALSE, importance = TRUE)
+
+
 
