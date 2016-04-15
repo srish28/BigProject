@@ -2,6 +2,11 @@ Patient <- read.csv("SingleFeaturesTable.csv")
 Patient$X <- NULL
 Patient <- Patient[c(2,1,3,4:ncol(Patient))]
 
+benchmark <- read.csv("randomForest-Benchmark.csv")
+testSinglePatient <- read.csv("testSinglePatientTable.csv")
+benchmark <- benchmark[order(benchmark$PatientGuid),] 
+testSinglePatient <- testSinglePatient[order(testSinglePatient$PatientGuid),]
+
 #####
 ###separating test and train
 Patient <- Patient[Patient$dmIndicator!=-1,]
@@ -71,30 +76,30 @@ while(i <= 1.05){
 }
 
 
-numberOfFeaturesRemoved<- zvCorr
+numberOfFeaturesRemaining<- zvCorr
 thresholdValue <- y
 
-plot(thresholdValue,numberOfFeaturesRemoved, type = 'o', col = 'red')
+plot(thresholdValue,numberOfFeaturesRemaining, type = 'o', col = 'red')
 
-numberOfFeaturesRemoved <- nzvCorr
+numberOfFeaturesRemaining <- nzvCorr
 thresholdValue <- y
 
-lines(thresholdValue,numberOfFeaturesRemoved, type = 'o', pch=22, lty=2, col = 'blue')
-legend("topright", c("zvPatient", "nzvPatient"), cex=0.8, col=c( "red", "blue"), lty=1:3, lwd=2, bty="n")
+lines(thresholdValue,numberOfFeaturesRemaining, type = 'o', pch=22, lty=2, col = 'blue')
+legend("topleft", c("zvPatient", "nzvPatient"), cex=0.8, col=c( "red", "blue"), lty=1:3, lwd=2, bty="n")
 
 ##############################
 
 
-numberOfFeaturesRemoved<- zvCorr
+numberOfFeaturesRemaining<- zvCorr
 thresholdValue <- y
 
-plot(thresholdValue,numberOfFeaturesRemoved, type = 'o', col = 'red')
+plot(thresholdValue,numberOfFeaturesRemaining, type = 'o', col = 'red')
 title(main="zv", col.main="red", font.main=4)
 
-numberOfFeaturesRemoved <- nzvCorr
+numberOfFeaturesRemaining <- nzvCorr
 thresholdValue <- y
 
-plot(thresholdValue,numberOfFeaturesRemoved, type = 'o', pch=22, lty=2, col = 'blue')
+plot(thresholdValue,numberOfFeaturesRemaining, type = 'o', pch=22, lty=2, col = 'blue')
 title(main="nzv", col.main="blue", font.main=4)
 #################################
 
@@ -193,6 +198,8 @@ high95ZvPatient <- zvPatient[, -zvcorr95]
 
 
 
+
+
 library(mlbench)
 library(FSelector)
 options(java.parameters = "-Xmx12g")
@@ -245,41 +252,11 @@ g <- predict(fit, newx = mPatient, type = "nonzero")
 lassoPatient <- Patient[,g$s12]
 
 
-#ridge regression
-ridgeFit <- glmnet(mPatient, mY, family = "gaussian", alpha = 0, lambda = 0.001)
-summary(fit)
-predictRidge <- predict(ridgeFit, mPatient, type = "link")
-
-rmse <- mean((mY - predictRidge)^2)
-print(rmse)
-
-library(randomForest)
-#random forest selection
-#nzv correlated features removed dataset
-#low
-set.seed(4353)
-#low15NzvPatient.rf <- randomForest(dmIndicator~., data = data.matrix(low15NzvPatient), ntree = 35, keep.forest = FALSE, importance = TRUE)
-low15NzvPatient.rf <- foreach(ntree = rep(8,3), .combine = combine, .packages = 'randomForest') %dopar% randomForest(low15NzvPatient[,4:ncol(low15NzvPatient)], low15NzvPatient[,1], ntree = ntree, keep.forest = FALSE, importance = TRUE)
-#high
-high95NzvPatient.rf <- randomForest(dmIndicator~., data = data.matrix(high95NzvPatient), ntree = 80, keep.forest = FALSE, importance = TRUE)
-
-
-#zv correlated features removed dataset
-#low
-set.seed(9856)
-low15ZvPatient.rf <- foreach(ntree = rep(100,3), .combine = combine, .packages = 'randomForest') %dopar% randomForest(low15ZvPatient[,4:ncol(low15ZvPatient)], low15ZvPatient[,1], ntree = ntree, keep.forest = FALSE, importance = TRUE)
-#low15ZvPatient.rf <- randomForest(dmIndicator~., data = data.matrix(low15ZvPatient) , ntree = 350, keep.forest = FALSE, importance = TRUE)
-#high
-#high95ZvPatient.rf <- randomForest(dmIndicator~., data = data.matrix(high95NzvPatient), ntree = 500, keep.forest = FALSE, importance = TRUE)
-low15ZvPatient.rf <- foreach(ntree = rep(130,3), .combine = combine, .multicombine=TRUE, .packages = 'randomForest') %dopar% randomForest(low15ZvPatient[,4:ncol(low15ZvPatient)], low15ZvPatient[,1], ntree = ntree, keep.forest = FALSE, importance = TRUE)
-
-
-
 #####time check
 
 set.seed(223646)
 z1 <- unclass(Sys.time())
-rf <- randomForest(Patient2[,3:length(Patient2)], Patient2$dmIndicator, replace=TRUE, ntree=15000, nodesize=5, do.trace=50)
+
 z2 <- unclass(Sys.time())
 elapsed.time.minutes <- round((z2 - z1)/ 60,2)  
 cat("\n")
@@ -298,15 +275,11 @@ testSinglePatient <- aggregate(testPatient[,3:ncol(testPatient)],testPatient[,1:
 write.csv(testSinglePatient,"testSinglePatientTable.csv")
 
 
-f <- as.simple.formula(colnames(SinglePatient[2:ncol(Patient)]), "dmIndicator")
 
-model <- glm(f, family = binomial(link = 'logit'), data = SinglePatient)
 
-fit <- glm(dmIndicator~., data = SinglePatient[1:6], family = binomial("logit"), maxit = 8)
-
-library(doParallel)
-library(foreach)
-library(randomForest)
-registerDoParallel(cores=4)
-rf <- foreach(ntree = rep(50, 3), .combine = combine, .multicombine=TRUE, .packages= 'randomForest') %dopar% randomForest(low15ZvPatient[,4:ncol(low15ZvPatient)], low15ZvPatient[,1])
+library(ROCR)
+#ROC Curve
+p <- prediction(benchmark[,10], benchmark[,2])
+perf <- performance(p, measure="lift", x.measure="rpp")
+plot(perf)
 
