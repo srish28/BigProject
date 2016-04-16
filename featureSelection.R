@@ -24,17 +24,17 @@ mcorrPatient <- data.matrix(Patient)
 #removing near zero and zero
 nzv <- nearZeroVar(mcorrPatient)
 #near zero and zero removed
-nzvPatient <- Patient[, -nzv]
+nzvPatient <- SinglePatient[, -nzv]
 
 nzv <- nearZeroVar(mcorrPatient, saveMetrics = TRUE, names = TRUE, foreach = FALSE, allowParallel = TRUE)
 
 
 zv <- nzv[nzv[, "zeroVar"] >0, ]
 zvRow <- rownames(zv)
-zvId <- match(zvRow, names(Patient))
+zvId <- match(zvRow, names(SinglePatient))
 
 #zero variance removed
-zvPatient <- Patient[, -zvId]
+zvPatient <- SinglePatient[, -zvId]
 
 
 #find correlation in nzv
@@ -214,7 +214,7 @@ cfsResult <- cfs(dmIndicator~., Patient[1:404])
 
 to.remove <-cfsResult
 '%ni%' <- Negate('%in%')
-cfsPatient <- subset(Patient, select = names(Patient) %ni% to.remove)
+cfsPatient <- subset(SinglePatient, select = names(SinglePatient) %ni% to.remove)
 
 write.csv(cfsPatient,"cfsPatient.csv")
 
@@ -242,14 +242,11 @@ print(fit)
 plot(fit, xvar = 'lambda', label = TRUE)
 plot(fit, xvar = 'dev', label = TRUE)
 
-coef.exact = coef(fit, s = 0.07, exact = TRUE)
-coef.apprx = coef(fit, s = 0.07, exact = TRUE)
-cbind2(coef.exact, coef.apprx)
 
-g <- predict(fit, newx = mPatient, type = "nonzero")
+g <- predict(fit, newx = testSinglePatient, type = "nonzero")
 
 
-lassoPatient <- Patient[,g$s12]
+lassoPatient <- SinglePatient[,g$s15]
 
 
 #####time check
