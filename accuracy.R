@@ -81,4 +81,7 @@ PatientRFdata.pred$aggregate[PatientRFdata.pred$aggregate >= cutoff] <- 1
 benchmark <- cbind(benchmark, PatientRFdata.pred$aggregate)
 rmse <- (mean((benchmark[,10] - benchmark[,2])**2))**0.5
 confusionMatrix(benchmark[,10], benchmark[,2],  dnn = c("Prediction", "Reference"))
+<<<<<<< HEAD
 
+=======
+>>>>>>> 4d00ac53cdf216cad0acae7a23ba8413d6fd7fb9
