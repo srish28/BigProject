@@ -245,12 +245,8 @@ plot(fit, xvar = 'dev', label = TRUE)
 
 g <- predict(fit, newx = testSinglePatient, type = "nonzero")
 
-<<<<<<< HEAD
 
-lassoPatient <- SinglePatient[,g$s15]
-=======
-lassoPatient <- Patient[,g$s12]
->>>>>>> 4d00ac53cdf216cad0acae7a23ba8413d6fd7fb9
+lassoPatient <- SinglePatient[,g$s16]
 
 
 #####time check
